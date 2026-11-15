@@ -24,13 +24,13 @@ La columna de alcance de las matrices usa estos términos:
 
 ### 3.1. Autenticación y usuarios
 
-| Acción                                   | Requester | Technician | Admin |
-| ---------------------------------------- | --------- | ---------- | ----- |
-| Iniciar sesión                           | Sí        | Sí         | Sí    |
-| Consultar sus propios datos (`/auth/me`) | Sí        | Sí         | Sí    |
-| Crear usuarios                           | No        | No         | Sí    |
-| Consultar y filtrar usuarios             | No        | No         | Sí    |
-| Activar y desactivar usuarios            | No        | No         | Sí    |
+| Acción                                   | Requester | Technician | Admin                         |
+| ---------------------------------------- | --------- | ---------- | ----------------------------- |
+| Iniciar sesión                           | Sí        | Sí         | Sí                            |
+| Consultar sus propios datos (`/auth/me`) | Sí        | Sí         | Sí                            |
+| Crear usuarios                           | No        | No         | Sí                            |
+| Consultar y filtrar usuarios             | No        | No         | Sí                            |
+| Activar y desactivar usuarios            | No        | No         | Sí (excepto su propia cuenta) |
 
 ### 3.2. Incidencias
 
@@ -53,23 +53,23 @@ Notas:
 - Ninguna operación de escritura (comentar, cambiar prioridad, asignar, cambiar estado) se permite sobre una incidencia `Closed`.
 - Un técnico puede **ver** las incidencias disponibles para decidir si las toma, pero no puede comentar ni modificarlas hasta que se las asigne.
 - Un técnico no ve las incidencias asignadas a otros técnicos.
-- Solo el `Requester` crea incidencias. El `Admin` y el `Technician` no crean incidencias en nombre de otros en la v1.
+- Solo el `Requester` crea incidencias. El `Admin` y el `Technician` no crean incidencias en la v1 (ver P-03 en `requirements.md`).
 
 ### 3.3. Cambios de estado por rol
 
 Esta tabla resume quién puede ejecutar cada transición. Las condiciones y efectos completos están en `ticket-workflow.md`.
 
-| Transición                                                               | Requester | Technician                   | Admin        |
-| ------------------------------------------------------------------------ | --------- | ---------------------------- | ------------ |
-| `Open` → `Assigned`                                                      | No        | Autoasignación (disponibles) | Sí (asignar) |
-| `Reopened` → `Assigned`                                                  | No        | Autoasignación (disponibles) | Sí (asignar) |
-| `Assigned` / `InProgress` / `WaitingForUser` → `Assigned` (reasignación) | No        | No                           | Sí           |
-| `Assigned` → `InProgress`                                                | No        | Asignados                    | No           |
-| `InProgress` → `WaitingForUser`                                          | No        | Asignados                    | No           |
-| `WaitingForUser` → `InProgress`                                          | No        | Asignados                    | No           |
-| `InProgress` → `Resolved`                                                | No        | Asignados (con solución)     | No           |
-| `Resolved` → `Closed`                                                    | Propios   | No                           | Todos        |
-| `Resolved` → `Reopened`                                                  | Propios   | No                           | Todos        |
+| ID   | Transición                                                               | Requester | Technician                   | Admin        |
+| ---- | ------------------------------------------------------------------------ | --------- | ---------------------------- | ------------ |
+| T-01 | `Open` → `Assigned`                                                      | No        | Autoasignación (disponibles) | Sí (asignar) |
+| T-02 | `Reopened` → `Assigned`                                                  | No        | Autoasignación (disponibles) | Sí (asignar) |
+| T-03 | `Assigned` / `InProgress` / `WaitingForUser` → `Assigned` (reasignación) | No        | No                           | Sí           |
+| T-04 | `Assigned` → `InProgress`                                                | No        | Asignados                    | No           |
+| T-05 | `InProgress` → `WaitingForUser`                                          | No        | Asignados                    | No           |
+| T-06 | `WaitingForUser` → `InProgress`                                          | No        | Asignados                    | No           |
+| T-07 | `InProgress` → `Resolved`                                                | No        | Asignados (con solución)     | No           |
+| T-08 | `Resolved` → `Closed`                                                    | Propios   | No                           | Todos        |
+| T-09 | `Resolved` → `Reopened`                                                  | Propios   | No                           | Todos        |
 
 Cualquier transición que no aparezca en esta tabla está prohibida para todos los roles.
 
@@ -93,46 +93,51 @@ Cualquier transición que no aparezca en esta tabla está prohibida para todos l
 
 ## 4. Autorización por endpoint
 
-| Método | Endpoint                       | Acceso                | Alcance (validado en el servicio)                                         |
-| ------ | ------------------------------ | --------------------- | ------------------------------------------------------------------------- |
-| POST   | `/api/auth/login`              | Anónimo               | Usuario activo con credenciales válidas.                                  |
-| GET    | `/api/auth/me`                 | Autenticado           | Usuario del token.                                                        |
-| GET    | `/api/tickets`                 | Autenticado           | Filtra según el rol (ver 3.2).                                            |
-| POST   | `/api/tickets`                 | `Requester`           | Categoría activa.                                                         |
-| GET    | `/api/tickets/{id}`            | Autenticado           | Según rol y alcance.                                                      |
-| PATCH  | `/api/tickets/{id}/assignment` | `Admin`, `Technician` | Admin: asigna o reasigna. Technician: solo autoasignación de disponibles. |
-| PATCH  | `/api/tickets/{id}/status`     | Autenticado           | Según la tabla 3.3.                                                       |
-| PATCH  | `/api/tickets/{id}/priority`   | `Admin`, `Technician` | Technician solo en asignados.                                             |
-| POST   | `/api/tickets/{id}/comments`   | Autenticado           | Según rol y alcance. Ticket no `Closed`.                                  |
-| GET    | `/api/tickets/{id}/history`    | Autenticado           | Según rol y alcance.                                                      |
-| GET    | `/api/categories`              | Autenticado           | Admin puede ver también las inactivas.                                    |
-| POST   | `/api/categories`              | `Admin`               |                                                                           |
-| PATCH  | `/api/categories/{id}`         | `Admin`               |                                                                           |
-| GET    | `/api/users`                   | `Admin`               |                                                                           |
-| POST   | `/api/users`                   | `Admin`               |                                                                           |
-| PATCH  | `/api/users/{id}`              | `Admin`               | Activar o desactivar.                                                     |
-| GET    | `/api/dashboard/summary`       | Autenticado           | Contenido según rol.                                                      |
+| Método | Endpoint                       | Acceso                | Alcance (validado en el servicio)                                                                                                                                        |
+| ------ | ------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/api/auth/login`              | Anónimo               | Usuario activo con credenciales válidas.                                                                                                                                 |
+| GET    | `/api/auth/me`                 | Autenticado           | Usuario del token.                                                                                                                                                       |
+| GET    | `/api/tickets`                 | Autenticado           | Filtra según el rol (ver 3.2).                                                                                                                                           |
+| POST   | `/api/tickets`                 | `Requester`           | Categoría activa.                                                                                                                                                        |
+| GET    | `/api/tickets/{id}`            | Autenticado           | Según rol y alcance.                                                                                                                                                     |
+| PATCH  | `/api/tickets/{id}/assignment` | `Admin`, `Technician` | Ejecuta T-01, T-02 y T-03. Admin: asigna o reasigna a cualquier técnico activo. Technician: solo autoasignación de disponibles, y el técnico indicado debe ser él mismo. |
+| PATCH  | `/api/tickets/{id}/status`     | Autenticado           | Ejecuta T-04 a T-09, según la tabla 3.3.                                                                                                                                 |
+| PATCH  | `/api/tickets/{id}/priority`   | `Admin`, `Technician` | Technician solo en asignados.                                                                                                                                            |
+| POST   | `/api/tickets/{id}/comments`   | Autenticado           | Según rol y alcance. Si el ticket está `Closed`, responde 400.                                                                                                           |
+| GET    | `/api/tickets/{id}/comments`   | Autenticado           | Según rol y alcance.                                                                                                                                                     |
+| GET    | `/api/tickets/{id}/history`    | Autenticado           | Según rol y alcance.                                                                                                                                                     |
+| GET    | `/api/categories`              | Autenticado           | Admin puede ver también las inactivas.                                                                                                                                   |
+| POST   | `/api/categories`              | `Admin`               |                                                                                                                                                                          |
+| PATCH  | `/api/categories/{id}`         | `Admin`               | Editar o desactivar.                                                                                                                                                     |
+| GET    | `/api/users`                   | `Admin`               | Admite filtro por rol.                                                                                                                                                   |
+| POST   | `/api/users`                   | `Admin`               |                                                                                                                                                                          |
+| PATCH  | `/api/users/{id}`              | `Admin`               | Activar o desactivar. No puede aplicarse a la propia cuenta.                                                                                                             |
+| GET    | `/api/dashboard/summary`       | Autenticado           | Contenido según rol.                                                                                                                                                     |
 
-Las columnas "Acceso" se aplican con `[Authorize]` y roles o políticas. La columna "Alcance" no puede resolverse con atributos, porque depende de los datos del ticket. Se valida en la capa de servicios.
+La columna "Acceso" se aplica con `[Authorize]` y roles o políticas. La columna "Alcance" no puede resolverse con atributos, porque depende de los datos del ticket. Se valida en la capa de servicios.
 
 ## 5. Respuestas de la API ante accesos denegados
 
-| Situación                                                        | Código | Ejemplo                                             |
-| ---------------------------------------------------------------- | ------ | --------------------------------------------------- |
-| No hay token, está vencido o es inválido                         | 401    | Llamar a `/api/tickets` sin autenticarse.           |
-| El rol no puede usar el endpoint                                 | 403    | Un `Requester` llama a `POST /api/users`.           |
-| La incidencia existe pero está fuera del alcance del usuario     | 404    | Un `Requester` consulta el ticket de otro empleado. |
-| El usuario tiene acceso al ticket pero no puede hacer esa acción | 403    | Un técnico intenta cerrar un ticket Resolved        |
-| La acción rompe una regla de negocio o la transición no existe   | 400    | Cerrar un ticket que no está `Resolved`.            |
-| Conflicto de concurrencia                                        | 409    | Dos técnicos se autoasignan el mismo ticket.        |
-| Datos de entrada inválidos                                       | 400    | Título vacío o categoría inactiva.                  |
+| Situación                                                              | Código | Ejemplo                                             |
+| ---------------------------------------------------------------------- | ------ | --------------------------------------------------- |
+| No hay token, está vencido o es inválido                               | 401    | Llamar a `/api/tickets` sin autenticarse.           |
+| Inicio de sesión fallido (contraseña incorrecta o usuario desactivado) | 401    | Mensaje genérico, sin distinguir la causa.          |
+| El rol no puede usar el endpoint                                       | 403    | Un `Requester` llama a `POST /api/users`.           |
+| La incidencia no existe o está fuera del alcance del usuario           | 404    | Un `Requester` consulta el ticket de otro empleado. |
+| El usuario tiene acceso al ticket pero no puede hacer esa acción       | 403    | Un técnico intenta cerrar un ticket `Resolved`.     |
+| La acción rompe una regla de negocio o la transición no existe         | 400    | Cerrar un ticket que no está `Resolved`.            |
+| Datos de entrada inválidos                                             | 400    | Título vacío o categoría inactiva.                  |
+| Conflicto de concurrencia                                              | 409    | Dos técnicos se autoasignan el mismo ticket.        |
 
-**Decisión: 404 para incidencias fuera de alcance.** Cuando una incidencia existe pero el usuario no tiene acceso a ella, la API responde 404 en lugar de 403. Así no se revela la existencia de tickets ajenos. Esto afecta a las consultas por identificador, no a los endpoints protegidos solo por rol, que devuelven 403.
+**Decisión: 404 para incidencias fuera de alcance.** Cuando una incidencia existe pero el usuario no tiene acceso a ella, la API responde 404 en lugar de 403, y es exactamente la misma respuesta que para una incidencia que no existe. Así no se revela la existencia de tickets ajenos. Esto afecta a todas las operaciones por identificador de ticket, no a los endpoints protegidos solo por rol, que devuelven 403.
+
+El orden en que el servicio evalúa estos casos está en `ticket-workflow.md`, sección 7.
 
 ## 6. Reglas generales de seguridad
 
 1. Cada operación valida el rol **y** el alcance en el backend. Ocultar botones en Angular no es una medida de seguridad.
 2. La identidad del usuario sale siempre del token (claims), nunca de datos enviados en el cuerpo o la URL. Por ejemplo, el `RequesterId` de un ticket nuevo es el usuario autenticado, no un campo del request.
 3. Las listas se filtran en la consulta a la base de datos según el rol, no en memoria después de descargar todo.
-4. Un usuario desactivado no puede iniciar sesión ni ser elegido como técnico asignado.
+4. Un usuario desactivado no puede iniciar sesión ni ser elegido como técnico asignado. Qué ocurre con un token que sigue vigente tras la desactivación está pendiente (P-01 en `requirements.md`).
 5. Las acciones del administrador sobre incidencias se limitan a asignar, reasignar, cambiar prioridad, cerrar y reabrir. El `Admin` no trabaja las incidencias (no cambia a `InProgress`, `WaitingForUser` ni registra soluciones).
+6. Un `Admin` no puede desactivar su propia cuenta, para evitar que el sistema se quede sin administradores. Si lo intenta, la API responde 400.

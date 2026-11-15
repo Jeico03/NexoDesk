@@ -17,7 +17,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 - **RF-03:** No existe registro público. Solo el `Admin` crea cuentas de empleados y técnicos.
 - **RF-04:** El `Admin` puede crear usuarios y asignarles un rol.
 - **RF-05:** El `Admin` puede consultar la lista de usuarios y filtrarla por rol, por ejemplo para listar técnicos al asignar.
-- **RF-06:** El `Admin` puede activar y desactivar usuarios. Un usuario desactivado no puede iniciar sesión.
+- **RF-06:** El `Admin` puede activar y desactivar usuarios, excepto su propia cuenta. Un usuario desactivado no puede iniciar sesión.
 
 ### Incidencias (tickets)
 
@@ -28,7 +28,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 - **RF-11:** El `Admin` puede consultar todas las incidencias.
 - **RF-12:** El `Admin` puede asignar y reasignar incidencias a un técnico activo.
 - **RF-13:** El `Technician` puede autoasignarse una incidencia disponible.
-- **RF-14:** El `Technician` y el `Admin` pueden cambiar la prioridad de una incidencia.
+- **RF-14:** El `Technician` (solo en las incidencias asignadas a él) y el `Admin` pueden cambiar la prioridad de una incidencia.
 - **RF-15:** El `Technician` puede cambiar el estado de las incidencias que tiene asignadas, respetando las transiciones permitidas.
 - **RF-16:** El `Technician` puede registrar la solución (`ResolutionSummary`) y marcar la incidencia como resuelta.
 - **RF-17:** El `Requester` puede cerrar una incidencia propia que esté resuelta.
@@ -73,12 +73,12 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 - **RN-10:** La salida de `WaitingForUser` la realiza siempre el técnico. El comentario del empleado no cambia el estado automáticamente.
 - **RN-11:** Cuando una incidencia `Open` se asigna a un técnico (por el `Admin` o por autoasignación), pasa a `Assigned` y deja de aparecer como disponible.
 - **RN-12:** Reasignar una incidencia activa (`Assigned`, `InProgress` o `WaitingForUser`) a otro técnico la devuelve al estado `Assigned`.
-- **RN-13:** Al reabrir una incidencia (`Resolved` → `Reopened`) se quita el técnico asignado, se limpia `ResolvedAtUtc` y la incidencia vuelve a estar disponible. Debe pasar de nuevo por asignación (`Reopened` → `Assigned`), y puede tomarla cualquier técnico, incluido el anterior
-  También se limpia ResolutionSummary; la solución anterior se conserva en el historial.
+- **RN-13:** Al reabrir una incidencia (`Resolved` → `Reopened`) se quita el técnico asignado, y se limpian `ResolvedAtUtc` y `ResolutionSummary`. La solución anterior se conserva en el historial. La incidencia vuelve a estar disponible y debe pasar de nuevo por asignación (`Reopened` → `Assigned`). Puede tomarla cualquier técnico, incluido el anterior.
 - **RN-14:** Solo se puede asignar una incidencia a un usuario con rol `Technician` y activo.
 - **RN-15:** El nombre de una categoría es único. Una categoría con incidencias no se elimina; solo se desactiva.
 - **RN-16:** Un usuario desactivado no puede iniciar sesión ni ser elegido como técnico asignado.
 - **RN-17:** Todo cambio importante de una incidencia se registra en el historial en la misma operación que lo produce.
+- **RN-18:** Un `Admin` no puede desactivar su propia cuenta, para evitar que el sistema se quede sin administradores.
 
 ## 4. Requisitos no funcionales
 
@@ -86,7 +86,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 
 - **RNF-01:** Todas las funcionalidades privadas requieren autenticación. Una solicitud sin token válido recibe 401.
 - **RNF-02:** La autorización se valida en el backend en cada operación. No depende de ocultar botones en el frontend.
-- **RNF-03:** Una solicitud sin permisos suficientes recibe 403, y un usuario no puede ver ni modificar incidencias ajenas.Una solicitud sin permisos suficientes sobre un endpoint recibe 403, y las incidencias fuera del alcance del usuario responden 404.
+- **RNF-03:** Una solicitud sin permisos suficientes sobre un endpoint recibe 403, y las incidencias fuera del alcance del usuario responden 404.
 - **RNF-04:** Las contraseñas no se almacenan en texto plano (hash gestionado por ASP.NET Core Identity).
 - **RNF-05:** Claves JWT, cadenas de conexión y otros secretos no se suben a GitHub. Se usan User Secrets en desarrollo y variables de entorno en despliegue.
 - **RNF-06:** CORS se restringe al origen del frontend.
@@ -96,7 +96,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 - **RNF-07:** Todos los datos de entrada se validan, y los errores de validación devuelven 400 con un mensaje claro.
 - **RNF-08:** La API devuelve códigos HTTP apropiados (200, 201, 400, 401, 403, 404, 409) y errores en formato Problem Details.
 - **RNF-09:** La paginación, los filtros y el ordenamiento se ejecutan en la consulta a la base de datos, no en memoria.
-- **RNF-10:** Si dos técnicos intentan tomar la misma incidencia a la vez, solo uno lo consigue y el otro recibe 409 (control de concurrencia).
+- **RNF-10:** Toda modificación de una incidencia usa control de concurrencia (`RowVersion`). Si dos operaciones chocan (por ejemplo, dos técnicos tomando la misma incidencia, o un `Admin` reasignando mientras el técnico la resuelve), solo una se aplica y la otra recibe 409.
 - **RNF-11:** Las fechas se almacenan en UTC.
 
 ### Mantenibilidad
@@ -129,7 +129,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 
 - _Dado_ un `Requester` autenticado y un ticket creado por otro empleado,
 - _cuando_ intenta consultar o modificar ese ticket,
-- _entonces_ la API rechaza la solicitud y no revela el contenido del ticket.
+- _entonces_ la API responde 404, no revela el contenido del ticket y no se modifica nada.
 
 **CA-03: Autoasignación simultánea**
 
@@ -141,7 +141,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 
 - _Dado_ un ticket `Resolved` propio del `Requester`,
 - _cuando_ el empleado lo reabre,
-- _entonces_ el ticket pasa a `Reopened`, no tiene técnico asignado, `ResolvedAtUtc` queda vacío, aparece como disponible y se registra el evento en el historial.
+- _entonces_ el ticket pasa a `Reopened`, no tiene técnico asignado, `ResolvedAtUtc` y `ResolutionSummary` quedan vacíos, aparece como disponible y se registra el evento en el historial.
 
 **CA-05: Cierre solo desde Resolved**
 
@@ -152,17 +152,36 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 **CA-06: Comentarios en ticket cerrado**
 
 - _Dado_ un ticket en estado `Closed`,
-- _cuando_ cualquier usuario intenta agregar un comentario,
-- _entonces_ la API rechaza la solicitud y no se crea el comentario.
+- _cuando_ cualquier usuario con acceso a él intenta agregar un comentario,
+- _entonces_ la API responde 400 y no se crea el comentario.
 
 **CA-07: Usuario desactivado**
 
 - _Dado_ un usuario desactivado por el `Admin`,
 - _cuando_ intenta iniciar sesión con credenciales correctas,
-- _entonces_ la API rechaza el inicio de sesión y no emite token.
+- _entonces_ la API responde 401 con un mensaje genérico (sin distinguir entre contraseña incorrecta y usuario desactivado) y no emite token.
 
 **CA-08: Categoría inactiva**
 
 - _Dado_ una categoría desactivada,
 - _cuando_ un `Requester` intenta crear una incidencia con esa categoría,
 - _entonces_ la API responde 400 y no se crea la incidencia.
+
+**CA-09: Admin se desactiva a sí mismo**
+
+- _Dado_ un `Admin` autenticado,
+- _cuando_ intenta desactivar su propia cuenta,
+- _entonces_ la API responde 400 y la cuenta sigue activa.
+
+## 7. Pendientes
+
+Decisiones que no bloquean el inicio del desarrollo, pero que hay que resolver en la etapa indicada.
+
+| #    | Tema                                  | Pregunta                                                                                                                                                  | Se decide en    |
+| ---- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| P-01 | Usuario desactivado con token vigente | Sin refresh tokens ni revocación, un usuario desactivado conserva su JWT hasta que expire. ¿Token de vida corta y/o validar `IsActive` en cada solicitud? | Etapa 3         |
+| P-02 | Contraseñas                           | ¿Cómo recibe el usuario su contraseña inicial y cómo la cambia? ¿Se añade un RF de cambio de contraseña propia?                                           | Etapa 3         |
+| P-03 | Quién crea incidencias                | Hoy solo el `Requester`. ¿Pueden también `Technician` y `Admin` crear tickets propios?                                                                    | Etapa 4         |
+| P-04 | Campos de búsqueda                    | ¿`search` busca en `Number`, `Title` y `Description`, o solo en algunos?                                                                                  | Etapa 5         |
+| P-05 | Técnico desactivado                   | Sus incidencias activas las reasigna manualmente el `Admin` (T-03). Falta escribirlo como regla.                                                          | Etapa 3         |
+| P-06 | Soltar una incidencia                 | ¿Puede un técnico devolver una incidencia que se asignó por error?                                                                                        | Después del MVP |
