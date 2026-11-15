@@ -117,15 +117,15 @@ Las columnas "Acceso" se aplican con `[Authorize]` y roles o políticas. La colu
 
 ## 5. Respuestas de la API ante accesos denegados
 
-| Situación                                                        | Código | Ejemplo                                                                             |
-| ---------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- |
-| No hay token, está vencido o es inválido                         | 401    | Llamar a `/api/tickets` sin autenticarse.                                           |
-| El rol no puede usar el endpoint                                 | 403    | Un `Requester` llama a `POST /api/users`.                                           |
-| La incidencia existe pero está fuera del alcance del usuario     | 404    | Un `Requester` consulta el ticket de otro empleado.                                 |
-| El usuario tiene acceso al ticket pero no puede hacer esa acción | 403    | Un técnico intenta cambiar el estado de un ticket disponible que no se ha asignado. |
-| La acción rompe una regla de negocio o la transición no existe   | 400    | Cerrar un ticket que no está `Resolved`.                                            |
-| Conflicto de concurrencia                                        | 409    | Dos técnicos se autoasignan el mismo ticket.                                        |
-| Datos de entrada inválidos                                       | 400    | Título vacío o categoría inactiva.                                                  |
+| Situación                                                        | Código | Ejemplo                                             |
+| ---------------------------------------------------------------- | ------ | --------------------------------------------------- |
+| No hay token, está vencido o es inválido                         | 401    | Llamar a `/api/tickets` sin autenticarse.           |
+| El rol no puede usar el endpoint                                 | 403    | Un `Requester` llama a `POST /api/users`.           |
+| La incidencia existe pero está fuera del alcance del usuario     | 404    | Un `Requester` consulta el ticket de otro empleado. |
+| El usuario tiene acceso al ticket pero no puede hacer esa acción | 403    | Un técnico intenta cerrar un ticket Resolved        |
+| La acción rompe una regla de negocio o la transición no existe   | 400    | Cerrar un ticket que no está `Resolved`.            |
+| Conflicto de concurrencia                                        | 409    | Dos técnicos se autoasignan el mismo ticket.        |
+| Datos de entrada inválidos                                       | 400    | Título vacío o categoría inactiva.                  |
 
 **Decisión: 404 para incidencias fuera de alcance.** Cuando una incidencia existe pero el usuario no tiene acceso a ella, la API responde 404 en lugar de 403. Así no se revela la existencia de tickets ajenos. Esto afecta a las consultas por identificador, no a los endpoints protegidos solo por rol, que devuelven 403.
 

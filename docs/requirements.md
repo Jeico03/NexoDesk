@@ -73,7 +73,8 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 - **RN-10:** La salida de `WaitingForUser` la realiza siempre el técnico. El comentario del empleado no cambia el estado automáticamente.
 - **RN-11:** Cuando una incidencia `Open` se asigna a un técnico (por el `Admin` o por autoasignación), pasa a `Assigned` y deja de aparecer como disponible.
 - **RN-12:** Reasignar una incidencia activa (`Assigned`, `InProgress` o `WaitingForUser`) a otro técnico la devuelve al estado `Assigned`.
-- **RN-13:** Al reabrir una incidencia (`Resolved` → `Reopened`) se quita el técnico asignado, se limpia `ResolvedAtUtc` y la incidencia vuelve a estar disponible. Debe pasar de nuevo por asignación (`Reopened` → `Assigned`), y puede tomarla cualquier técnico, incluido el anterior.
+- **RN-13:** Al reabrir una incidencia (`Resolved` → `Reopened`) se quita el técnico asignado, se limpia `ResolvedAtUtc` y la incidencia vuelve a estar disponible. Debe pasar de nuevo por asignación (`Reopened` → `Assigned`), y puede tomarla cualquier técnico, incluido el anterior
+  También se limpia ResolutionSummary; la solución anterior se conserva en el historial.
 - **RN-14:** Solo se puede asignar una incidencia a un usuario con rol `Technician` y activo.
 - **RN-15:** El nombre de una categoría es único. Una categoría con incidencias no se elimina; solo se desactiva.
 - **RN-16:** Un usuario desactivado no puede iniciar sesión ni ser elegido como técnico asignado.
@@ -85,7 +86,7 @@ Este documento define qué debe hacer el sistema en su primera versión (MVP). L
 
 - **RNF-01:** Todas las funcionalidades privadas requieren autenticación. Una solicitud sin token válido recibe 401.
 - **RNF-02:** La autorización se valida en el backend en cada operación. No depende de ocultar botones en el frontend.
-- **RNF-03:** Una solicitud sin permisos suficientes recibe 403, y un usuario no puede ver ni modificar incidencias ajenas.
+- **RNF-03:** Una solicitud sin permisos suficientes recibe 403, y un usuario no puede ver ni modificar incidencias ajenas.Una solicitud sin permisos suficientes sobre un endpoint recibe 403, y las incidencias fuera del alcance del usuario responden 404.
 - **RNF-04:** Las contraseñas no se almacenan en texto plano (hash gestionado por ASP.NET Core Identity).
 - **RNF-05:** Claves JWT, cadenas de conexión y otros secretos no se suben a GitHub. Se usan User Secrets en desarrollo y variables de entorno en despliegue.
 - **RNF-06:** CORS se restringe al origen del frontend.
