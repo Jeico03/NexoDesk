@@ -47,17 +47,17 @@ stateDiagram-v2
 
 ## 4. Tabla de transiciones
 
-| ID   | Desde                                        | Hacia            | Quién                                           | Condiciones                                                                       | Efecto sobre los campos                                                            |
-| ---- | -------------------------------------------- | ---------------- | ----------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| T-01 | `Open`                                       | `Assigned`       | `Admin` (asigna) o `Technician` (se autoasigna) | El destino es un usuario activo con rol `Technician`. El ticket no tiene técnico. | `AssignedTechnicianId` = técnico.                                                  |
-| T-02 | `Reopened`                                   | `Assigned`       | `Admin` (asigna) o `Technician` (se autoasigna) | Igual que T-01.                                                                   | `AssignedTechnicianId` = técnico.                                                  |
-| T-03 | `Assigned` / `InProgress` / `WaitingForUser` | `Assigned`       | `Admin`                                         | El nuevo técnico está activo, es `Technician` y es distinto del actual.           | `AssignedTechnicianId` = nuevo técnico.                                            |
-| T-04 | `Assigned`                                   | `InProgress`     | `Technician` asignado                           | Ninguna.                                                                          | Ninguno.                                                                           |
-| T-05 | `InProgress`                                 | `WaitingForUser` | `Technician` asignado                           | Ninguna.                                                                          | Ninguno.                                                                           |
-| T-06 | `WaitingForUser`                             | `InProgress`     | `Technician` asignado                           | Ninguna.                                                                          | Ninguno.                                                                           |
-| T-07 | `InProgress`                                 | `Resolved`       | `Technician` asignado                           | `ResolutionSummary` obligatorio (no vacío).                                       | `ResolutionSummary` = texto. `ResolvedAtUtc` = ahora.                              |
-| T-08 | `Resolved`                                   | `Closed`         | `Requester` dueño o `Admin`                     | Ninguna.                                                                          | `ClosedAtUtc` = ahora.                                                             |
-| T-09 | `Resolved`                                   | `Reopened`       | `Requester` dueño o `Admin`                     | Ninguna.                                                                          | `AssignedTechnicianId` = nulo. `ResolutionSummary` = nulo. `ResolvedAtUtc` = nulo. |
+| ID   | Desde                                        | Hacia            | Quién                                           | Condiciones                                                                                                                                    | Efecto sobre los campos                                                            |
+| ---- | -------------------------------------------- | ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| T-01 | `Open`                                       | `Assigned`       | `Admin` (asigna) o `Technician` (se autoasigna) | El destino es un usuario activo con rol `Technician`. El ticket no tiene técnico. Si lo ejecuta un `Technician`, el destino debe ser él mismo. | `AssignedTechnicianId` = técnico.                                                  |
+| T-02 | `Reopened`                                   | `Assigned`       | `Admin` (asigna) o `Technician` (se autoasigna) | Igual que T-01.                                                                                                                                | `AssignedTechnicianId` = técnico.                                                  |
+| T-03 | `Assigned` / `InProgress` / `WaitingForUser` | `Assigned`       | `Admin`                                         | El nuevo técnico está activo, es `Technician` y es distinto del actual.                                                                        | `AssignedTechnicianId` = nuevo técnico.                                            |
+| T-04 | `Assigned`                                   | `InProgress`     | `Technician` asignado                           | Ninguna.                                                                                                                                       | Ninguno.                                                                           |
+| T-05 | `InProgress`                                 | `WaitingForUser` | `Technician` asignado                           | Ninguna.                                                                                                                                       | Ninguno.                                                                           |
+| T-06 | `WaitingForUser`                             | `InProgress`     | `Technician` asignado                           | Ninguna.                                                                                                                                       | Ninguno.                                                                           |
+| T-07 | `InProgress`                                 | `Resolved`       | `Technician` asignado                           | `ResolutionSummary` obligatorio (no vacío).                                                                                                    | `ResolutionSummary` = texto. `ResolvedAtUtc` = ahora.                              |
+| T-08 | `Resolved`                                   | `Closed`         | `Requester` dueño o `Admin`                     | Ninguna.                                                                                                                                       | `ClosedAtUtc` = ahora.                                                             |
+| T-09 | `Resolved`                                   | `Reopened`       | `Requester` dueño o `Admin`                     | Ninguna.                                                                                                                                       | `AssignedTechnicianId` = nulo. `ResolutionSummary` = nulo. `ResolvedAtUtc` = nulo. |
 
 **Cualquier transición que no aparezca en esta tabla está prohibida para todos los roles.** Por ejemplo: `Open` → `Closed`, `Assigned` → `Resolved` o `Closed` → cualquiera.
 
@@ -73,14 +73,16 @@ Cada transición se registra en `TicketHistory` dentro de la misma operación qu
 - **Todo cambio de estado** genera un evento `StatusChanged` (`OldValue` y `NewValue` con los estados).
 - Además, algunas operaciones generan un evento propio:
 
-| Transición                   | Eventos generados                                                                                                                                              |
+| Operación                    | Eventos generados                                                                                                                                              |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Creación del ticket          | `Created`                                                                                                                                                      |
 | T-01, T-02                   | `Assigned` (`NewValue` = técnico) y `StatusChanged`                                                                                                            |
 | T-03                         | `Reassigned` (`OldValue` = técnico anterior, `NewValue` = nuevo). Más `StatusChanged` solo si el estado cambió (`InProgress` o `WaitingForUser` → `Assigned`). |
 | T-04, T-05, T-06, T-08, T-09 | `StatusChanged`                                                                                                                                                |
 | T-07                         | `ResolutionRecorded` (`NewValue` = solución) y `StatusChanged`                                                                                                 |
-| Cambio de prioridad          | `PriorityChanged`                                                                                                                                              |
+| Cambio de prioridad          | `PriorityChanged` (`OldValue` y `NewValue` con las prioridades)                                                                                                |
+
+Al reabrir (T-09), el ticket pierde su `ResolutionSummary`, pero la solución anterior sigue disponible en el evento `ResolutionRecorded` que la registró (D-08).
 
 ## 6. Estado y campos del ticket
 
@@ -100,22 +102,25 @@ Esta tabla indica qué debe cumplirse siempre. Sirve para detectar datos incoher
 
 1. `Closed` es un estado final. No admite cambios de estado, prioridad, asignación ni comentarios.
 2. El técnico no puede saltarse estados. Para resolver, el ticket debe estar en `InProgress`.
-3. Los comentarios no cambian el estado (RN-10). Se pueden agregar en cualquier estado excepto `Closed`.
-4. El cambio de prioridad es independiente del estado y no genera transición. Está permitido en cualquier estado excepto `Closed`.
+3. Los comentarios no cambian el estado (RN-10). Se pueden agregar en cualquier estado excepto `Closed`, por quienes tengan permiso para comentar según `roles-and-permissions.md`, sección 3.2.
+4. El cambio de prioridad es independiente del estado y no genera transición. Está permitido en cualquier estado excepto `Closed`. El `Admin` puede cambiarla en cualquier incidencia y el `Technician` solo en las asignadas a él. Cambiar a la misma prioridad que ya tiene se rechaza con 400.
 5. Cada operación actualiza `UpdatedAtUtc`.
-6. Las transiciones T-01 y T-02 usan control de concurrencia (`RowVersion`). Si dos técnicos toman el mismo ticket a la vez, solo uno lo consigue y el otro recibe 409.
+6. Toda modificación del ticket usa control de concurrencia (`RowVersion`). Si hay conflicto, la respuesta es 409. Ejemplos: dos técnicos que toman el mismo ticket a la vez, o un `Admin` que reasigna mientras el técnico lo resuelve.
 7. Reasignar a un técnico que ya está asignado al ticket se rechaza con 400.
 8. El `Requester` puede explicar la reapertura con un comentario, pero no es obligatorio.
+9. Si un `Technician` intenta asignar un ticket a otro técnico, la API responde 403.
 
 ### Orden de validación y códigos de respuesta
 
-Cuando llega una solicitud de cambio, el servicio valida en este orden:
+Cuando llega una solicitud sobre un ticket, el sistema valida en este orden y se detiene en la primera falla:
 
-1. El ticket existe y está dentro del alcance del usuario. Si no, **404**.
-2. La transición existe en la tabla 4 desde el estado actual. Si no, **400**.
-3. El rol y el alcance del usuario le permiten ejecutarla. Si no, **403**.
-4. Se cumplen las condiciones (solución presente, técnico válido). Si no, **400**.
-5. Se guarda sin conflicto de concurrencia. Si hay conflicto, **409**.
+1. **Autenticación y rol del endpoint** (`[Authorize]`). Sin token válido: **401**. Rol no permitido en el endpoint: **403**.
+2. **Formato de los datos.** Campos obligatorios ausentes o valores no válidos: **400**.
+3. **El ticket existe y está dentro del alcance del usuario.** Si no existe o está fuera de alcance, la respuesta es la misma: **404**.
+4. **La transición existe** desde el estado actual (tabla 4). Si no, **400**.
+5. **El rol y el alcance del usuario le permiten ejecutarla.** Si no, **403**.
+6. **Se cumplen las condiciones** (solución presente, técnico válido y activo, prioridad distinta). Si no, **400**.
+7. **Se guarda sin conflicto de concurrencia.** Si hay conflicto, **409**.
 
 ## 8. Ejemplo de ciclo de vida
 
@@ -133,8 +138,11 @@ Cuando llega una solicitud de cambio, el servicio valida en este orden:
 | 10   | ...        | Se repite el ciclo hasta resolver | `Resolved`        | ...                                   |
 | 11   | Requester  | Confirma y cierra                 | `Closed`          | `StatusChanged`                       |
 
-## 9. Puntos pendientes
+## 9. Pendientes y límites de la versión 1
 
-- Qué ocurre con las incidencias activas de un técnico que el `Admin` desactiva (¿se reasignan manualmente, se liberan automáticamente?).
-- Si un técnico puede soltar una incidencia que se asignó por error.
-- Si hay cierre automático de incidencias `Resolved` que el empleado nunca confirma.
+Los pendientes de este flujo están en `requirements.md`, sección 7 (Pendientes):
+
+- **P-05:** qué pasa con las incidencias activas de un técnico desactivado. Hoy las reasigna manualmente el `Admin` con T-03.
+- **P-06:** si un técnico puede soltar una incidencia que se asignó por error.
+
+El cierre automático de incidencias `Resolved` que el empleado nunca confirma está fuera del alcance de la versión 1 (`requirements.md`, sección 5).
