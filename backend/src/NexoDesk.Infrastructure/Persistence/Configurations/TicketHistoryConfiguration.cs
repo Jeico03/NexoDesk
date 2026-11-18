@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
 using NexoDesk.Domain.Entities;
+using NexoDesk.Infrastructure.Identity;
 
 namespace NexoDesk.Infrastructure.Persistence.Configurations;
 
@@ -51,6 +53,14 @@ public sealed class TicketHistoryConfiguration
             .HasForeignKey(h => h.TicketId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("FK_TicketHistories_Tickets_TicketId");
+
+        // Actor relationship
+        builder.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(h => h.ActorId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("FK_TicketHistories_AspNetUsers_ActorId");
 
         // Index
         builder.HasIndex(h => new { h.TicketId, h.CreatedAtUtc })

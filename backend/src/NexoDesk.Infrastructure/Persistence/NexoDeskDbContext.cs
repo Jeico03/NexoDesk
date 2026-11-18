@@ -1,9 +1,14 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+
 using NexoDesk.Domain.Entities;
+using NexoDesk.Infrastructure.Identity;
 
 namespace NexoDesk.Infrastructure.Persistence;
 
-public sealed class NexoDeskDbContext : DbContext
+public sealed class NexoDeskDbContext
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
     public NexoDeskDbContext(
         DbContextOptions<NexoDeskDbContext> options)

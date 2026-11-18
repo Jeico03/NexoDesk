@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
 using NexoDesk.Domain.Entities;
 using NexoDesk.Domain.Enums;
+using NexoDesk.Infrastructure.Identity;
 
 namespace NexoDesk.Infrastructure.Persistence.Configurations;
 
@@ -53,21 +55,40 @@ public sealed class TicketConfiguration
             .HasConversion<string>()
             .HasMaxLength(16)
             .IsRequired()
-            .HasDefaultValue(TicketPriority.Medium);
+            .HasDefaultValue(TicketPriority.Medium)
+            .HasSentinel((TicketPriority)0);
 
         // Status
         builder.Property(t => t.Status)
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired()
-            .HasDefaultValue(TicketStatus.Open);
+            .HasDefaultValue(TicketStatus.Open)
+            .HasSentinel((TicketStatus)0);
 
         // Requester
         builder.Property(t => t.RequesterId)
             .IsRequired();
 
         // Assigned Technician
-        builder.Property(t => t.AssignedTechnicianId);
+        builder.Property(t => t.AssignedTechnicianId)
+            .IsRequired(false);
+
+        // Requester relationship
+        builder.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(t => t.RequesterId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("FK_Tickets_AspNetUsers_RequesterId");
+
+        // Assigned Technician relationship
+        builder.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(t => t.AssignedTechnicianId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("FK_Tickets_AspNetUsers_AssignedTechnicianId");
 
         // Resolution Summary
         builder.Property(t => t.ResolutionSummary);
